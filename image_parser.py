@@ -5,7 +5,7 @@ import itertools
 
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import colors, colorbar, pyplot as plt
 
 # TODO I know this is hardcoded, but the screenshots should always be the same resolution (750x1334), right?
 puzzle_height_y = 1210
@@ -46,6 +46,9 @@ def crop_to_puzzle(full_screenshot_img):
             grouped_horizontal_lines_ys.append(i)
     horizontal_lines_ys = grouped_horizontal_lines_ys
 
+    if len(horizontal_lines_ys) > 2:
+        horizontal_lines_ys = horizontal_lines_ys[1:]
+
     global puzzle_height_y, puzzle_width_x
     puzzle_height_y = max(horizontal_lines_ys) - min(horizontal_lines_ys)
     puzzle_width_x = full_screenshot_img.shape[1]
@@ -79,15 +82,19 @@ def crop_to_color_palette(full_screenshot_img):
             if abs(x2 - x1) < 3:
                 vertical_lines_xs.append(x1)
 
+    vertical_lines_xs = sorted(vertical_lines_xs)
+
     banding_dividers = [vertical_lines_xs[0]]
-    for line in sorted(vertical_lines_xs):
+    for line in vertical_lines_xs:
         if abs(line - banding_dividers[-1]) > 10:
             banding_dividers.append(line)
 
+    # print(banding_dividers)
+
     start_y = max(horizontal_lines_ys)
-    start_x = banding_dividers[4]
+    start_x = banding_dividers[3]
     height_y = full_screenshot_img.shape[0] - puzzle_height_y
-    width_x = full_screenshot_img.shape[1] - banding_dividers[4]
+    width_x = full_screenshot_img.shape[1] - start_x
     return img_copy[start_y:start_y + height_y, start_x:start_x + width_x]
 
 
@@ -237,6 +244,7 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False, debu
         print("Ignoring colors {}".format(ignore_labels))
     else:
         compactness, labels, centers = cv2.kmeans(pixel_colors, K, None, termination_criteria, random_restarts, flags)
+        label_names = extract_palette_map(centers, num_colors, preprocessed_img)
 
     if debug_print:
         print("K means complete!")
@@ -244,18 +252,20 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False, debu
         print("centers =", centers)
 
     # compare the k-means colors to the color palette
-    # fig, (ax1, ax2) = plt.subplots(1, 2)
-    # centers_rgb = [(center[2] / 255.0, center[1] / 255.0, center[0] / 255.0) for center in centers]
-    # bounds = np.arange(K + 1)
-    # cmap = matplotlib.colors.ListedColormap(centers_rgb)
-    # norm = matplotlib.colors.BoundaryNorm(bounds, cmap.N)
-    # cb2 = matplotlib.colorbar.ColorbarBase(ax1, cmap = cmap, norm = norm, orientation = 'horizontal')
-    # ax1.set_title(f"k means colors (k = {K})")
-    # #
-    # ax2.imshow(cv2.cvtColor(palette, cv2.COLOR_BGR2RGB))
-    # ax2.axis('off')
-    # ax2.set_title("color palette from original image")
-    plt.show()
+    if debug_plots:
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        centers_rgb = [(center[2] / 255.0, center[1] / 255.0, center[0] / 255.0) for center in centers]
+        bounds = np.arange(K + 1)
+        cmap = colors.ListedColormap(centers_rgb)
+        norm = colors.BoundaryNorm(bounds, cmap.N)
+        cb2 = colorbar.ColorbarBase(ax1, cmap = cmap, norm = norm, orientation = 'horizontal')
+        ax1.set_title(f"k means colors (k = {K})")
+        #
+        palette = crop_to_color_palette(preprocessed_img)
+        ax2.imshow(cv2.cvtColor(palette, cv2.COLOR_BGR2RGB))
+        ax2.axis('off')
+        ax2.set_title("color palette from original image")
+        plt.show()
 
     converted_puzzle = convert_to_kmeans_colors(labels, centers)
     # print(converted_puzzle.shape)
@@ -311,14 +321,17 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False, debu
 
 
 def extract_palette_map(centers, num_colors, preprocessed_img):
-    palette_tolerance = 20
+    palette_tolerance = 40
     # extract the color palette
     palette = crop_to_color_palette(preprocessed_img)
     label_names = {}
     for center_index in range(len(centers)):
+        # print("NEW CENTER")
         center = centers[center_index]
         for e in range(num_colors):
             palette_entry = palette[10, ((palette.shape[1] // num_colors) * e) + 10]
+            # print("TOLERANCES", abs(palette_entry[0] - center[0]), abs(palette_entry[1] - center[1]),
+            #       abs(palette_entry[2] - center[2]))
             if abs(palette_entry[0] - center[0]) < palette_tolerance and abs(
                     palette_entry[1] - center[1]) < palette_tolerance and abs(
                 palette_entry[2] - center[2]) < palette_tolerance:
