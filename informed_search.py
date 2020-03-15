@@ -1,7 +1,6 @@
-import copy
-
-import statespace as kami2
 import deterministic_search as search
+import statespace as kami2
+
 
 def num_colors_heuristic(state):
     """
@@ -23,6 +22,7 @@ def num_colors_heuristic(state):
         if color_counts[color] == 1:
             return state.num_colors() - 1
     return state.num_colors()
+
 
 def color_distance_heuristic(state):
     """
@@ -103,8 +103,10 @@ def transform_a_star_to_ucs(problem, heuristic):
                 #     input("enter to continue...")
                 actions_costs[i] = action, new_state, new_cost
             return actions_costs
+
     new_problem = NewKami2Puzzle(problem.start_state())
     return new_problem
+
 
 class AStarSearch:
     def __init__(self, heuristic):

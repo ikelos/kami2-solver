@@ -1,6 +1,6 @@
 import copy
-import random
 import itertools
+
 
 class Kami2Puzzle:
     def __init__(self, initial_state):
@@ -55,6 +55,7 @@ class Kami2Puzzle:
         else:
             return 0
 
+
 class PuzzleState:
     def __init__(self, graph, node_colors, moves_left):
         """
@@ -97,7 +98,8 @@ class PuzzleState:
             for nbr in graph[node]:
                 assert nbr != node, "Graph validation failed: self-loop exists on node %d" % (node,)
                 assert node in graph[nbr], "Graph validation failed: missing %d -> %d" % (nbr, node)
-                assert node_colors[node] != node_colors[nbr], "%d and %d have the same color %s" % (node, nbr, node_colors[node])
+                assert node_colors[node] != node_colors[nbr], "%d and %d have the same color %s" % (
+                    node, nbr, node_colors[node])
 
     def __hash__(self):
         return hash((
@@ -111,9 +113,9 @@ class PuzzleState:
         Compares states for equality.
         """
         return (self.moves_left == other.moves_left and
-            self.node_colors == other.node_colors and
-            self.graph.keys() == other.graph.keys() and
-            self.graph == other.graph)
+                self.node_colors == other.node_colors and
+                self.graph.keys() == other.graph.keys() and
+                self.graph == other.graph)
 
     def __neq__(self, other):
         return not self.__eq__(other)
@@ -151,10 +153,11 @@ class PuzzleState:
         new_neighbors = set([])
         for neighbor in self.graph[node]:
             if self.get_color(neighbor) == new_color:
-                new_neighbors |= (self.graph[neighbor] - set([node,]))
+                new_neighbors |= (self.graph[neighbor] - set([node, ]))
                 # replace the reference to neighbor with reference to new node
                 for next_nbr in self.graph[neighbor]:
-                    if next_nbr == node: continue
+                    if next_nbr == node:
+                        continue
                     new_next_nbrs = set(new_graph[next_nbr])
                     new_next_nbrs.remove(neighbor)
                     new_next_nbrs.add(node)
@@ -184,6 +187,7 @@ class PuzzleState:
         Returns a mapping from node color to the maximum distance between any
         two nodes of that color in the graph (memoized).
         """
+
         def brandes(graph):
             """
             Since graph is unweighted and undirected, use BFS to compute

@@ -225,7 +225,7 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
     palette_tolerance = 20
     # extract the color palette
     palette = crop_to_color_palette(preprocessed_img)
-    new_centers = []
+    new_centers = {}
     for center_index in range(len(centers)):
         center = centers[center_index]
         for e in range(num_colors):
@@ -233,9 +233,12 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
             if abs(palette_entry[0] - center[0]) < palette_tolerance and abs(
                     palette_entry[1] - center[1]) < palette_tolerance and abs(
                 palette_entry[2] - center[2]) < palette_tolerance:
-                new_centers.append(center_index)
+                new_centers[center_index] = e
 
     ignore_labels = set(range(len(centers))) - set(new_centers)
+
+    for entry in sorted(new_centers):
+        print("COLOR {} means PALETTE {}".format(entry, new_centers[entry]))
 
     print("IGNORING COLORS {}".format(ignore_labels))
 
@@ -307,7 +310,7 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
             label = None
         node_colors[node_num] = label
 
-    return (pixel_nodes, node_colors, num_nodes)
+    return pixel_nodes, node_colors, num_nodes
 
 
 # gets a list of neighboring pixel coordinates (y, x)
@@ -324,7 +327,7 @@ def get_neighbor_coords(pixel_y, pixel_x):
     return neighbor_coords
 
 
-def identify_adjacent_nodes(pixel_nodes, num_nodes, node_colors = None, debug_print = False):
+def identify_adjacent_nodes(pixel_nodes, num_nodes, debug_print = False):
     puzzle_graph = {}
     counts = {}
     for i in range(1, num_nodes + 1):
@@ -370,7 +373,8 @@ def parse_image_graph(img_filename, num_colors, debug_print = False, debug_plots
 
     preprocessed_img = image_preprocessing(img)
 
-    pixel_nodes, node_colors, num_nodes = label_pixels_by_node(preprocessed_img, num_colors, debug_print = debug_print)
+    pixel_nodes, node_colors, num_nodes = label_pixels_by_node(preprocessed_img, num_colors,
+                                                               debug_print = debug_print)
     if debug_print:
         print(f"assigned pixels to contiguous nodes! there are {num_nodes} nodes")
 
@@ -378,7 +382,7 @@ def parse_image_graph(img_filename, num_colors, debug_print = False, debug_plots
     c = ax1.pcolormesh(pixel_nodes, cmap = 'jet')
     ax1.invert_yaxis()
     ax1.set_title("node groupings")
-    fig.colorbar(c, ax = ax1)
+    fig.colorbar(c, ax = ax1, spacing = 'uniform')
 
     puzzle = crop_to_puzzle(preprocessed_img)
     ax2.imshow(cv2.cvtColor(puzzle, cv2.COLOR_BGR2RGB))
@@ -398,7 +402,11 @@ def parse_image_graph(img_filename, num_colors, debug_print = False, debug_plots
 
     # print(node_colors)
 
-    return puzzle_graph, node_colors
+    for node in list(node_colors):
+        if node_colors[node] is None:
+            del node_colors[node]
+
+    return puzzle_graph, node_colors, pixel_nodes
 
 
 def main():
