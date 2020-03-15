@@ -21,12 +21,12 @@ def image_preprocessing(img):
     bilateral_sigma = 100
     bilateral_filtered_img = cv2.bilateralFilter(img, bilateral_d, bilateral_sigma, bilateral_sigma)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    ax1.set_title("original image")
-
-    ax2.imshow(cv2.cvtColor(bilateral_filtered_img, cv2.COLOR_BGR2RGB))
-    ax2.set_title(f"bilateral filter (d={bilateral_d}, sigma={bilateral_sigma})")
+    # fig, (ax1, ax2) = plt.subplots(1, 2)
+    # ax1.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    # ax1.set_title("original image")
+    #
+    # ax2.imshow(cv2.cvtColor(bilateral_filtered_img, cv2.COLOR_BGR2RGB))
+    # ax2.set_title(f"bilateral filter (d={bilateral_d}, sigma={bilateral_sigma})")
     # plt.show()
     return bilateral_filtered_img
 
@@ -38,6 +38,13 @@ def crop_to_puzzle(full_screenshot_img):
         x1, y1, x2, y2 = line[0]
         if abs(y2 - y1) < 3:
             horizontal_lines_ys.append(y1)
+
+    # Group the horiztonal lines
+    grouped_horizontal_lines_ys = [0]
+    for i in sorted(horizontal_lines_ys):
+        if abs(i - grouped_horizontal_lines_ys[-1]) > 5:
+            grouped_horizontal_lines_ys.append(i)
+    horizontal_lines_ys = grouped_horizontal_lines_ys
 
     global puzzle_height_y, puzzle_width_x
     puzzle_height_y = max(horizontal_lines_ys) - min(horizontal_lines_ys)
@@ -198,7 +205,7 @@ def assign_pixels_to_nodes(pixel_labels, num_labels, ignore_labels = None):
     return (pixel_nodes, next_node_number - 1)
 
 
-def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
+def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False, debug_plots = False):
     puzzle = crop_to_puzzle(preprocessed_img)
     # print(puzzle.shape) # y by x by color
     # print(puzzle[0,0:5,:])
@@ -226,10 +233,10 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
 
     ignore_labels = set(range(len(centers))) - set(label_names)
 
-    for entry in sorted(label_names):
-        print("COLOR {} means PALETTE {}".format(entry, label_names[entry]))
-
-    print("IGNORING COLORS {}".format(ignore_labels))
+    if ignore_labels:
+        print("Ignoring colors {}".format(ignore_labels))
+    else:
+        compactness, labels, centers = cv2.kmeans(pixel_colors, K, None, termination_criteria, random_restarts, flags)
 
     if debug_print:
         print("K means complete!")
@@ -254,16 +261,17 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
     # print(converted_puzzle.shape)
     # print(converted_puzzle[0,0:5,:])
 
-    # compare the original puzzle to the k-means compressed version
-    fig2, (ax1, ax2) = plt.subplots(1, 2)
-    ax1.imshow(cv2.cvtColor(puzzle, cv2.COLOR_BGR2RGB))
-    ax1.set_title("original image")
-    ax1.axis('off')
+    if debug_plots:
+        # compare the original puzzle to the k-means compressed version
+        fig2, (ax1, ax2) = plt.subplots(1, 2)
+        ax1.imshow(cv2.cvtColor(puzzle, cv2.COLOR_BGR2RGB))
+        ax1.set_title("original image")
+        ax1.axis('off')
 
-    ax2.imshow(cv2.cvtColor(converted_puzzle, cv2.COLOR_BGR2RGB))
-    ax2.set_title(f"converted image ({K} colors)")
-    ax2.axis('off')
-    # plt.show()
+        ax2.imshow(cv2.cvtColor(converted_puzzle, cv2.COLOR_BGR2RGB))
+        ax2.set_title(f"converted image ({K} colors)")
+        ax2.axis('off')
+        # plt.show()
 
     print("Parse contiguous regions")
     # parse contiguous regions (i.e. nodes) from converted colors
@@ -379,7 +387,8 @@ def parse_image_graph(img_filename, num_colors, debug_print = False, debug_plots
     preprocessed_img = image_preprocessing(img)
 
     pixel_nodes, node_colors, num_nodes, label_names = label_pixels_by_node(preprocessed_img, num_colors,
-                                                                            debug_print = debug_print)
+                                                                            debug_print = debug_print,
+                                                                            debug_plots = debug_plots)
     if debug_print:
         print(f"assigned pixels to contiguous nodes! there are {num_nodes} nodes")
 
