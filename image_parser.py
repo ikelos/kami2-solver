@@ -222,23 +222,12 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
         print(f"starting K means: max {max_iters} iterations, {random_restarts} random restarts")
     compactness, labels, centers = cv2.kmeans(pixel_colors, K + 1, None, termination_criteria, random_restarts, flags)
 
-    palette_tolerance = 20
-    # extract the color palette
-    palette = crop_to_color_palette(preprocessed_img)
-    new_centers = {}
-    for center_index in range(len(centers)):
-        center = centers[center_index]
-        for e in range(num_colors):
-            palette_entry = palette[10, ((palette.shape[1] // num_colors) * e) + 10]
-            if abs(palette_entry[0] - center[0]) < palette_tolerance and abs(
-                    palette_entry[1] - center[1]) < palette_tolerance and abs(
-                palette_entry[2] - center[2]) < palette_tolerance:
-                new_centers[center_index] = e
+    label_names = extract_palette_map(centers, num_colors, preprocessed_img)
 
-    ignore_labels = set(range(len(centers))) - set(new_centers)
+    ignore_labels = set(range(len(centers))) - set(label_names)
 
-    for entry in sorted(new_centers):
-        print("COLOR {} means PALETTE {}".format(entry, new_centers[entry]))
+    for entry in sorted(label_names):
+        print("COLOR {} means PALETTE {}".format(entry, label_names[entry]))
 
     print("IGNORING COLORS {}".format(ignore_labels))
 
@@ -310,7 +299,23 @@ def label_pixels_by_node(preprocessed_img, num_colors, debug_print = False):
             label = None
         node_colors[node_num] = label
 
-    return pixel_nodes, node_colors, num_nodes
+    return pixel_nodes, node_colors, num_nodes, label_names
+
+
+def extract_palette_map(centers, num_colors, preprocessed_img):
+    palette_tolerance = 20
+    # extract the color palette
+    palette = crop_to_color_palette(preprocessed_img)
+    label_names = {}
+    for center_index in range(len(centers)):
+        center = centers[center_index]
+        for e in range(num_colors):
+            palette_entry = palette[10, ((palette.shape[1] // num_colors) * e) + 10]
+            if abs(palette_entry[0] - center[0]) < palette_tolerance and abs(
+                    palette_entry[1] - center[1]) < palette_tolerance and abs(
+                palette_entry[2] - center[2]) < palette_tolerance:
+                label_names[center_index] = e
+    return label_names
 
 
 # gets a list of neighboring pixel coordinates (y, x)
@@ -373,8 +378,8 @@ def parse_image_graph(img_filename, num_colors, debug_print = False, debug_plots
 
     preprocessed_img = image_preprocessing(img)
 
-    pixel_nodes, node_colors, num_nodes = label_pixels_by_node(preprocessed_img, num_colors,
-                                                               debug_print = debug_print)
+    pixel_nodes, node_colors, num_nodes, label_names = label_pixels_by_node(preprocessed_img, num_colors,
+                                                                            debug_print = debug_print)
     if debug_print:
         print(f"assigned pixels to contiguous nodes! there are {num_nodes} nodes")
 
@@ -406,7 +411,7 @@ def parse_image_graph(img_filename, num_colors, debug_print = False, debug_plots
         if node_colors[node] is None:
             del node_colors[node]
 
-    return puzzle_graph, node_colors, pixel_nodes
+    return puzzle_graph, node_colors, pixel_nodes, label_names
 
 
 def main():
